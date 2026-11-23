@@ -14,11 +14,6 @@
        "black-translucent", iOS force les icônes de la barre de statut en
        blanc — donc peu lisibles sur un thème de lecture clair. -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="SinaRead">
-  <meta name="theme-color" content="#4d4d4d">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" href="icon-180.png">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
   <!-- Bibliothèques et polices intégrées directement dans ce fichier
@@ -4341,11 +4336,6 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
     }
     @media (prefers-reduced-motion: reduce) { .ra-player { transition: none; } }
   </style>
-<script>
-  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.sinaDesktop) {
-    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
-  }
-</script>
 </head>
 <body>
 
@@ -4937,6 +4927,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
                style="flex:1; min-width:0; padding:9px 12px; border-radius:20px; border:1px solid rgba(0,0,0,0.2); font-size:0.95rem;"
                onkeydown="if(event.key==='Enter'){ webBrowserGo(this.value); }">
         <button class="custom-dialog-btn-confirm" onclick="webBrowserGo(document.getElementById('webBrowserUrl').value)">Ouvrir</button>
+        <button class="icon-btn" onclick="webBrowserOpenExternal()" title="Ouvrir cette page dans mon vrai navigateur (Chrome, Edge…) — les livres téléchargés seront ajoutés ici automatiquement"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
         <button class="icon-btn" onclick="mangaDownloadCurrentChapter()" title="Télécharger ce chapitre (manga / manhwa) dans la bibliothèque"><i class="fa-solid fa-file-arrow-down"></i></button>
         <button class="icon-btn" onclick="savedSitesSaveCurrent()" title="Enregistrer cette page"><i class="fa-regular fa-star"></i></button>
         <button class="icon-btn" onclick="savedSitesTogglePanel()" title="Mes sites et liens"><i class="fa-solid fa-bookmark"></i></button>
@@ -8310,6 +8301,25 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         else if (action === 'forward' && wv.canGoForward()) wv.goForward();
         else if (action === 'reload') wv.reload();
       } catch (e) { /* page pas encore chargée */ }
+    }
+
+    // Ouvre la page dans le vrai navigateur de l'ordinateur (utile quand un site
+    // bloque la vérification Cloudflare ici). L'appli surveille alors le dossier
+    // Téléchargements : tout .epub / .pdf téléchargé est ajouté à la bibliothèque.
+    function webBrowserOpenExternal() {
+      let url = '';
+      try { url = (webBrowserView && webBrowserView.getURL && webBrowserView.getURL()) || ''; } catch (e) { /* ignore */ }
+      if (!/^https?:\/\//i.test(url)) {
+        const v = (document.getElementById('webBrowserUrl') || {}).value || '';
+        url = /^https?:\/\//i.test(v.trim()) ? v.trim() : '';
+      }
+      if (!url) { webBrowserToast('Ouvre d\'abord un site, puis clique sur ce bouton.'); return; }
+      if (window.sinaDesktop && window.sinaDesktop.openExternal) {
+        window.sinaDesktop.openExternal(url);
+        webBrowserToast('Ouvert dans ton navigateur. Télécharge le livre (.epub / .pdf) : il sera ajouté ici tout seul (surveillance du dossier Téléchargements pendant 15 min).');
+      } else {
+        window.open(url, '_blank');
+      }
     }
 
     function webBrowserGo(text) {
