@@ -19,7 +19,7 @@
   <meta name="theme-color" content="#4d4d4d">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-180.png">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   
   <!-- Bibliothèques et polices intégrées directement dans ce fichier
        (au lieu d'un CDN, et au lieu de fichiers externes voisins) pour que
@@ -4967,8 +4967,10 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         <input type="url" id="linkImportInput" placeholder="https://…" autocomplete="off" autocapitalize="off" spellcheck="false"
                style="flex:1; min-width:0; padding:10px; border-radius:8px; border:1px solid rgba(0,0,0,0.2); font-size:1rem;"
                onkeydown="if(event.key==='Enter'){ linkImportGo(); }">
+        <button class="custom-dialog-btn-cancel" onclick="linkImportSaveFavorite()" title="Enregistrer ce lien en favori" aria-label="Enregistrer ce lien en favori"><i class="fa-regular fa-star"></i></button>
         <button class="custom-dialog-btn-confirm" id="linkImportGoBtn" onclick="linkImportGo()">Ouvrir</button>
       </div>
+      <div id="linkImportFavs" style="display:flex; flex-direction:column; gap:6px; margin-top:10px;"></div>
       <details style="margin-top:10px; font-size:0.8rem;">
         <summary style="cursor:pointer; opacity:0.8;">Relais personnel (si les liens ne s'ouvrent pas)</summary>
         <p style="opacity:0.7; margin:6px 0;">Adresse de ton relais, par ex. https://sinaread.moncompte.workers.dev</p>
@@ -8473,6 +8475,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       document.getElementById('linkImportResults').innerHTML = '';
       document.getElementById('linkImportStatus').textContent = '';
       openModal('linkImportModal');
+      try { linkImportRenderFavorites(); } catch (e) { /* ignore */ }
       const rl = document.getElementById('linkImportRelay'); if (rl) rl.value = linkImportGetRelay();
       const inp = document.getElementById('linkImportInput');
       setTimeout(() => inp && inp.focus(), 50);
@@ -8650,6 +8653,50 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       } finally {
         linkImportBusy = false;
       }
+    }
+
+    // ----- Liens favoris (fenêtre « Ouvrir un lien ») : même liste que « Mes sites et liens » -----
+    async function linkImportSaveFavorite() {
+      let url = (document.getElementById('linkImportInput').value || '').trim();
+      if (!url) { linkImportSetStatus('Colle d’abord un lien à enregistrer.', true); return; }
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      let host = '';
+      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { linkImportSetStatus('Ce lien n’est pas valide.', true); return; }
+      const name = await customPrompt('Nom de ce lien :', host, 'Enregistrer', 'Annuler');
+      if (typeof name !== 'string' || !name.trim()) return;
+      const list = savedSitesLoad();
+      const existing = list.find((x) => x.url === url);
+      if (existing) existing.name = name.trim();
+      else list.unshift({ id: 'ss_' + Date.now().toString(36), name: name.trim(), url: url, added: Date.now() });
+      savedSitesStore(list);
+      linkImportSetStatus('Lien enregistré en favori : ' + name.trim());
+      linkImportRenderFavorites();
+    }
+
+    function linkImportRenderFavorites() {
+      const box = document.getElementById('linkImportFavs');
+      if (!box) return;
+      const list = savedSitesLoad();
+      box.innerHTML = '';
+      if (!list.length) return;
+      const title = document.createElement('div');
+      title.style.cssText = 'font-size:0.8rem; opacity:0.7; margin-top:4px;';
+      title.textContent = 'Mes liens favoris';
+      box.appendChild(title);
+      list.forEach((it) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(0,0,0,0.05); border-radius:10px;';
+        row.innerHTML = '<div style="flex:1; min-width:0; cursor:pointer;" data-act="open"><div style="font-weight:600; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + linkImportEsc(it.name) + '</div>'
+          + '<div style="font-size:0.72rem; opacity:0.6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + linkImportEsc(it.url) + '</div></div>'
+          + '<button class="icon-btn" data-act="del" title="Supprimer"><i class="fa-solid fa-trash"></i></button>';
+        row.querySelector('[data-act="open"]').onclick = () => { document.getElementById('linkImportInput').value = it.url; linkImportGo(); };
+        row.querySelector('[data-act="del"]').onclick = async () => {
+          if (!(await customConfirm('Supprimer « ' + it.name + ' » ?', 'Supprimer', 'Annuler'))) return;
+          savedSitesStore(savedSitesLoad().filter((x) => x.id !== it.id));
+          linkImportRenderFavorites();
+        };
+        box.appendChild(row);
+      });
     }
 
     let linkImportTryHere = false;
@@ -10046,6 +10093,25 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       }
       updateHud();
     }
+
+    const IS_IOS_TOUCH = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    // iPhone : petites zones tactiles invisibles, au centre du haut et du bas de l'écran
+    // (dans les marges, hors du texte), qui affichent/masquent le menu du lecteur même si
+    // Safari ne transmet pas les taps du milieu de la page. N'existent que sur iPhone/iPad.
+    (function setupIosTapStrips() {
+      if (!IS_IOS_TOUCH) return;
+      const rv = document.getElementById('reader-view');
+      if (!rv) return;
+      ['top', 'bottom'].forEach((pos) => {
+        const d = document.createElement('div');
+        d.className = 'ios-tap-strip';
+        d.style.cssText = 'position:absolute; left:30%; right:30%; height:48px; z-index:61; background:transparent; -webkit-tap-highlight-color:transparent;'
+          + (pos === 'top' ? 'top:0;' : 'bottom:0;');
+        d.addEventListener('click', (e) => { e.stopPropagation(); toggleReaderFullscreenHUD(); });
+        rv.appendChild(d);
+      });
+    })();
 
     // Masque le bandeau du haut/bas du lecteur (titre, pagination, croix de
     // sortie du lecteur) : appelée à chaque ouverture/fermeture des
@@ -11705,6 +11771,18 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         if (!doc.__hudTapBound) {
           doc.__hudTapBound = true;
 
+          // iPhone/iPad : Safari ne transmet pas toujours les taps sur du texte « non cliquable »
+          // d'une iframe. On marque le document comme cliquable (curseur « main » + gestionnaire
+          // vide posé par la page), ce qui force Safari à envoyer les événements tactiles/clic.
+          if (IS_IOS_TOUCH) {
+            try {
+              const st = doc.createElement('style');
+              st.textContent = 'html, body, body * { cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,0); }';
+              (doc.head || doc.documentElement).appendChild(st);
+              doc.documentElement.onclick = function () {};
+              if (doc.body) doc.body.onclick = function () {};
+            } catch (err) { /* ignore */ }
+          }
           // Voir createTapTracker() : on écoute pointer ET touch en
           // parallèle (dédupliqué) car les Pointer Events seuls ne se
           // déclenchent pas de façon fiable dans cette iframe sur iOS.
