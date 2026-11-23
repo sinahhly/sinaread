@@ -1814,19 +1814,23 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       bottom: 0;
       width: 8%;
       min-width: 4px;
+      /* Ombrage en « multiplication » : il assombrit la couleur de la couverture
+         SANS la griser (une couverture rose reste rose, juste plus foncée au
+         creux de la charnière), tout en gardant l'effet de relief réaliste. */
       background: linear-gradient(
         to right,
-        rgba(0,0,0,0.20) 0%,
-        rgba(255,255,255,0.16) 6%,
-        rgba(0,0,0,0.30) 16%,
-        rgba(0,0,0,0.38) 55%,
-        rgba(0,0,0,0.50) 84%,
-        rgba(255,255,255,0.22) 90%,
-        rgba(0,0,0,0.16) 96%,
-        rgba(0,0,0,0.04) 100%
+        rgb(224,224,224) 0%,
+        rgb(250,250,250) 6%,
+        rgb(214,214,214) 16%,
+        rgb(204,204,204) 55%,
+        rgb(186,186,186) 84%,
+        rgb(248,248,248) 90%,
+        rgb(226,226,226) 96%,
+        rgb(252,252,252) 100%
       );
+      mix-blend-mode: multiply;
       /* ombre douce de la charnière qui retombe sur la couverture */
-      box-shadow: 3px 0 6px -1px rgba(0,0,0,0.28);
+      box-shadow: 3px 0 6px -1px rgba(0,0,0,0.18);
       pointer-events: none;
       z-index: 2;
     }
@@ -5888,7 +5892,24 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
     let currentBookInstance = null;
     let renditionInstance = null;
     // État du geste de "tirer" (drag) pour tourner les pages, façon Apple Books
-    function __dbg() {}
+    // Journal de diagnostic AFFICHÉ À L'ÉCRAN : actif seulement si l'adresse se termine par #debug
+    // (ou si localStorage.sinaDebug = '1'). Sert à voir quels touchers arrivent dans le lecteur.
+    const __DBG_ON = (location.hash || '').indexOf('debug') >= 0 || (function () { try { return localStorage.getItem('sinaDebug') === '1'; } catch (e) { return false; } })();
+    const __dbgLines = [];
+    let __dbgBox = null;
+    function __dbg(msg) {
+      if (!__DBG_ON) return;
+      try {
+        if (!__dbgBox) {
+          __dbgBox = document.createElement('div');
+          __dbgBox.style.cssText = 'position:fixed; left:4px; right:4px; bottom:60px; z-index:2147483000; pointer-events:none; background:rgba(0,0,0,0.78); color:#7CFC7C; font:10px/1.25 monospace; padding:5px 6px; border-radius:6px; max-height:34vh; overflow:hidden; white-space:pre-wrap; word-break:break-all;';
+          document.body.appendChild(__dbgBox);
+        }
+        __dbgLines.push(new Date().toTimeString().slice(3, 8) + ' ' + String(msg));
+        while (__dbgLines.length > 14) __dbgLines.shift();
+        __dbgBox.textContent = __dbgLines.join('\n');
+      } catch (e) { /* ignore */ }
+    }
 
     let pageDragState = {
       active: false,
