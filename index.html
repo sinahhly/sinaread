@@ -2978,6 +2978,19 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       visibility: hidden;
       perspective: 2200px;
     }
+    /* --- Page qui se tourne (corne qui se décolle) --- */
+    #pageFlipOverlay .cv-shadowb,
+    #pageFlipOverlay .cv-front,
+    #pageFlipOverlay .cv-flapwrap,
+    #pageFlipOverlay .cv-flap,
+    #pageFlipOverlay .cv-flapshade {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    #pageFlipOverlay .cv-flap { transform-origin: 0 0; will-change: transform, clip-path; }
+    #pageFlipOverlay .cv-front { will-change: clip-path; }
+    #pageFlipOverlay .cv-flapclip { opacity: 0.42; }
     #pageFlipOverlay .pf-leaf {
       position: absolute;
       top: 0;
@@ -5406,6 +5419,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
             <span>Animation / Flux</span>
             <select id="settingSpreadMode" onchange="applyReaderSettings()">
               <option value="paginated" selected>Sans animation (Tourner les pages)</option>
+              <option value="curl">Page qui se tourne (effet livre)</option>
               <option value="fade">Fondu rapide</option>
               <option value="slide">Glissement</option>
               <option value="vertical">Défilement vertical</option>
@@ -9340,6 +9354,29 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         : null;
     }
 
+    // Pourcentage de lecture (0–100) ou null si l'index des positions n'est pas encore prêt.
+    function getSafeReadingPercent(cfi) {
+      try {
+        const loc = currentBookInstance && currentBookInstance.locations;
+        if (!loc || !cfi) return null;
+        const n = (typeof loc.length === 'function') ? loc.length() : (loc.total || 0);
+        if (!n) return null;
+        const p = loc.percentageFromCfi(cfi);
+        if (typeof p !== 'number' || !isFinite(p)) return null;
+        return Math.max(0, Math.min(100, Math.round(p * 100)));
+      } catch (e) { return null; }
+    }
+
+    // Recalcule la progression du livre ouvert d'après la page actuellement affichée.
+    function refreshReadingProgressFromLocation() {
+      try {
+        const loc = renditionInstance && renditionInstance.currentLocation && renditionInstance.currentLocation();
+        if (!loc || !loc.start || !currentOpenedBook) return;
+        const pct = getSafeReadingPercent(loc.start.cfi);
+        if (pct !== null) applyBookProgress(currentOpenedBook, pct);
+      } catch (e) { /* ignore */ }
+    }
+
     /* Met à jour la progression d'un livre pendant la lecture. Si la progression atteint 100%
        automatiquement (sans passer par le menu), la date de fin est aussi enregistrée — et
        inversement, si on redescend sous 100%, la date de fin est retirée. */
@@ -10052,7 +10089,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
           width: "100%",
           height: "100%"
         };
-        if (spreadMode === 'paginated' || spreadMode === 'fade' || spreadMode === 'slide') {
+        if (spreadMode === 'paginated' || spreadMode === 'curl' || spreadMode === 'fade' || spreadMode === 'slide') {
           // 'fade' et 'slide' sont aussi des modes page par page côté epub.js
           // (spread identique à 'paginated') — seule l'animation de
           // transition change (fondu ou glissement au lieu du repli de page).
@@ -10094,6 +10131,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
           currentBookInstance.locations.generate(1000).then(() => {
             buildLocationSpineMap();
             renderTocTree(currentTocFlat);
+            refreshReadingProgressFromLocation(); // la vraie progression, maintenant que l'index est prêt
             updateHud();
           });
         });
@@ -10121,11 +10159,10 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
             // fermeture du lecteur, voir closeReader()).
             book.lastCfi = location.start.cfi;
 
-            let percent = currentBookInstance.locations.percentageFromCfi(location.start.cfi);
-            if (!isNaN(percent)) {
-              let pctInt = Math.round(percent * 100);
-              applyBookProgress(book, pctInt);
-            }
+            // Progression : seulement si l'index des positions est prêt. Sinon epub.js renvoie null,
+            // ce qui était pris pour 0 % et écrasait la vraie progression (affichée « 0 % » à tort).
+            const pctInt = getSafeReadingPercent(location.start.cfi);
+            if (pctInt !== null) applyBookProgress(book, pctInt);
           }
           updateHud(location);
         });
@@ -10301,6 +10338,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       const spreadMode = getReaderAnimationMode();
       if (spreadMode === 'fade') { playFadeAnimation(direction); return; }
       if (spreadMode === 'slide') { playSlideAnimation(direction); return; }
+      if (spreadMode === 'curl') { animatePageCurl(direction, 1, 560, resetPageFlipVisual); return; }
       if (spreadMode !== 'paginated') return;
       const overlay = document.getElementById('pageFlipOverlay');
       if (!overlay) return;
@@ -10368,7 +10406,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
 
     function isPaginatedReadingMode() {
       const sel = document.getElementById('settingSpreadMode');
-      return !sel || sel.value === 'paginated' || sel.value === 'fade' || sel.value === 'slide';
+      return !sel || sel.value === 'paginated' || sel.value === 'curl' || sel.value === 'fade' || sel.value === 'slide';
     }
 
     // Ombre projetée sur la page en dessous (#pageFlipShadowCast), mise à
@@ -10454,7 +10492,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       const overlay = document.getElementById('pageFlipOverlay');
       if (!overlay) return false;
       const S = pageLeaf;
-      if (S.overlay === overlay && S.leaf && overlay.contains(S.leaf)) return true;
+      if (S.overlay === overlay && S.front && overlay.contains(S.front)) return true;
       overlay.innerHTML = '';
       const mk = (cls, parent) => {
         const d = document.createElement('div');
@@ -10463,15 +10501,15 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         return d;
       };
       S.overlay = overlay;
-      S.spine = mk('pf-spine');
-      S.cast = mk('pf-cast');
-      S.leaf = mk('pf-leaf');
-      S.front = mk('pf-face pf-front', S.leaf);
-      S.clip = mk('pf-clip', S.front);
-      S.frontShade = mk('pf-shade', S.front);
-      S.back = mk('pf-face pf-back', S.leaf);
-      S.backShade = mk('pf-shade', S.back);
-      S.frame = null; S.pendingFrame = null; S.frameSig = null; S.frameKey = null;
+      S.shadowB = mk('cv-shadowb');                 // ombre sur la page révélée
+      S.front = mk('cv-front');                     // partie encore à plat
+      S.leaf = S.front;
+      S.clip = mk('cv-clip', S.front);
+      S.flapWrap = mk('cv-flapwrap');               // porte l'ombre projetée du pli
+      S.flap = mk('cv-flap', S.flapWrap);           // partie décollée (verso, reflétée)
+      S.clip2 = mk('cv-clip cv-flapclip', S.flap);
+      S.flapShade = mk('cv-flapshade', S.flap);
+      S.frame = null; S.frame2 = null; S.pendingFrame = null; S.frameSig = null; S.frameKey = null;
       return true;
     }
 
@@ -10555,46 +10593,67 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       return '<!DOCTYPE html>' + clone.outerHTML;
     }
 
+    function removeLeafFrame(f) {
+      if (!f) return;
+      if (f.__twin) f.__twin.remove();
+      f.remove();
+    }
+
     function swapLeafFrame(f, sig, key) {
       const S = pageLeaf;
-      if (S.frame && S.frame !== f) S.frame.remove();
+      if (S.frame && S.frame !== f) removeLeafFrame(S.frame);
       S.frame = f;
+      S.frame2 = f.__twin || null;
       S.frameSig = sig;
       S.frameKey = key;
       f.style.opacity = '1';
+      if (f.__twin) f.__twin.style.opacity = '1';
     }
 
+    // Deux copies identiques du chapitre : une pour la partie à plat, une pour
+    // le verso (reflété) de la partie décollée.
     function loadLeafFrame(html, w, h, sig, key) {
       const S = pageLeaf;
-      if (!S.clip) return;
-      const f = document.createElement('iframe');
-      f.className = 'pf-frame';
-      f.setAttribute('sandbox', 'allow-same-origin'); // aucun script dans la copie
-      f.setAttribute('tabindex', '-1');
-      f.setAttribute('aria-hidden', 'true');
-      f.style.width = w + 'px';
-      f.style.height = h + 'px';
-      f.style.opacity = '0';
-      let done = false;
+      if (!S.clip || !S.clip2) return;
+      const make = () => {
+        const fr = document.createElement('iframe');
+        fr.className = 'pf-frame';
+        fr.setAttribute('sandbox', 'allow-same-origin'); // aucun script dans la copie
+        fr.setAttribute('tabindex', '-1');
+        fr.setAttribute('aria-hidden', 'true');
+        fr.style.width = w + 'px';
+        fr.style.height = h + 'px';
+        fr.style.opacity = '0';
+        return fr;
+      };
+      const f = make(), f2 = make();
+      f.__twin = f2;
+      let done = false, loaded = 0;
       const ready = () => {
         if (done) return;
         done = true;
         if (S.buildingSig === sig) S.buildingSig = null;
-        if (!f.isConnected) return;
+        if (!f.isConnected) { removeLeafFrame(f); return; }
         if (S.active) {
-          if (S.pendingFrame && S.pendingFrame !== f) S.pendingFrame.remove();
+          if (S.pendingFrame && S.pendingFrame !== f) removeLeafFrame(S.pendingFrame);
           S.pendingFrame = f; S.pendingSig = sig; S.pendingKey = key;
         } else {
           swapLeafFrame(f, sig, key);
         }
       };
-      f.onload = () => {
-        try { f.contentDocument.fonts.ready.then(() => setTimeout(ready, 30)); } catch (e) { ready(); }
-        setTimeout(ready, 800);
+      const onLoaded = (fr) => () => {
+        const fin = () => { loaded++; if (loaded >= 2) ready(); };
+        try { fr.contentDocument.fonts.ready.then(() => setTimeout(fin, 30)); } catch (e) { fin(); }
       };
+      f.onload = onLoaded(f);
+      f2.onload = onLoaded(f2);
+      setTimeout(ready, 1200);
       f.srcdoc = html;
+      f2.srcdoc = html;
       S.clip.appendChild(f);
+      S.clip2.appendChild(f2);
     }
+
 
     // Prépare (ou met à jour) la copie du chapitre qui servira de recto à la
     // feuille. Appelée à chaque rendu (rendition 'rendered'), JAMAIS pendant
@@ -10631,6 +10690,8 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
 
     // Calcule la géométrie de la feuille au début d'un tourné, d'après
     // l'emplacement RÉEL de la page à l'écran à cet instant.
+    // Calcule la géométrie au début d'un tourné, d'après l'emplacement RÉEL de
+    // la page à l'écran à cet instant, et place les deux copies du chapitre.
     function layoutPageLeaf(direction) {
       const S = pageLeaf;
       const ovR = S.overlay.getBoundingClientRect();
@@ -10639,50 +10700,48 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       const next = direction === 'next';
       const spread = isSpreadLayout();
       const leafW = spread ? W / 2 : W;
-      const hingeX = spread ? W / 2 : (next ? 0 : W);
-      const leafLeft = next ? hingeX : hingeX - leafW;
+      const pl = next ? (W - leafW) : 0;
+      const pr = pl + leafW;
       const base = getCurlBaseColor();
-      S.geom = { W, H, leafW, leafLeft, hingeX, next, spread, base, maxAngle: spread ? 180 : 98 };
-
-      S.overlay.style.perspective = PAGE_LEAF_PERSPECTIVE + 'px';
-      S.overlay.style.perspectiveOrigin = (W / 2) + 'px ' + (H / 2) + 'px';
-      const leaf = S.leaf;
-      leaf.style.left = leafLeft + 'px';
-      leaf.style.width = leafW + 'px';
-      leaf.style.height = H + 'px';
-      leaf.style.transformOrigin = next ? '0% 50%' : '100% 50%';
-      leaf.style.transform = 'none';
+      const cf = (pageDragState && pageDragState.active && pageDragState.cornerFrac != null) ? pageDragState.cornerFrac : 1;
+      S.geom = { W, H, leafW, pl, pr, next, spread, base, cornerTop: cf < 0.5 };
+      S.overlay.style.perspective = 'none';
       S.front.style.background = `rgb(${base.r},${base.g},${base.b})`;
-      const k = 0.94;
-      S.back.style.background = `rgb(${Math.round(base.r * k)},${Math.round(base.g * k)},${Math.round(base.b * k)})`;
+      // verso : papier un peu plus clair que le recto
+      const lift = (c) => Math.round(c + (255 - c) * 0.55);
+      S.flap.style.background = `rgb(${lift(base.r)},${lift(base.g)},${lift(base.b)})`;
 
-      // Place la copie du chapitre exactement là où est la vraie page.
       const src = getLeafSourceFrame();
-      const frame = S.frame;
-      if (frame) {
+      const frames = [S.frame, S.frame2].filter(Boolean);
+      let placed = false;
+      if (frames.length && src) {
         let sameDoc = true;
-        try { sameDoc = !!(src && src.contentDocument && computeLeafKey(src.contentDocument) === S.frameKey); } catch (e) { sameDoc = false; }
-        if (src && sameDoc) {
+        try { sameDoc = !!(src.contentDocument && computeLeafKey(src.contentDocument) === S.frameKey); } catch (e) { sameDoc = false; }
+        if (sameDoc) {
           const r = src.getBoundingClientRect();
-          frame.style.left = (r.left - ovR.left - leafLeft) + 'px';
-          frame.style.top = (r.top - ovR.top) + 'px';
-          frame.style.visibility = ''; // hérite de l'overlay (caché au repos)
-          // Ne montre que la zone réellement visible du lecteur (sinon la
-          // colonne suivante du chapitre dépasserait sur les marges).
           const vwr = document.getElementById('epub-viewer');
           const vr = vwr ? vwr.getBoundingClientRect() : r;
-          const cl = Math.max(0, vr.left - ovR.left - leafLeft);
           const ct = Math.max(0, vr.top - ovR.top);
-          const cr = Math.max(0, leafW - (vr.right - ovR.left - leafLeft));
+          const cl = Math.max(0, vr.left - ovR.left);
+          const cr = Math.max(0, W - (vr.right - ovR.left));
           const cb = Math.max(0, H - (vr.bottom - ovR.top));
-          S.clip.style.clipPath = `inset(${ct}px ${cr}px ${cb}px ${cl}px)`;
-        } else {
-          frame.style.visibility = 'hidden'; // autre chapitre : papier uni plutôt qu'une mauvaise page
-          S.dirty = true;
+          const inset = `inset(${ct}px ${cr}px ${cb}px ${cl}px)`;
+          S.clip.style.clipPath = inset;
+          S.clip2.style.clipPath = inset;
+          frames.forEach((fr) => {
+            fr.style.left = (r.left - ovR.left) + 'px';
+            fr.style.top = (r.top - ovR.top) + 'px';
+            fr.style.visibility = '';
+          });
+          placed = true;
         }
       }
-      // Le style a pu changer depuis la dernière copie (thème, police…) :
-      // on la remettra à jour dès la fin du tourné.
+      if (!placed) {
+        frames.forEach((fr) => { fr.style.visibility = 'hidden'; });
+        S.dirty = true;
+      }
+      S.canCurl = placed;
+      // Le style a pu changer depuis la dernière copie : on la remettra à jour après.
       try {
         if (src && src.contentDocument && computeLeafSignature(src, src.contentDocument) !== S.frameSig) S.dirty = true;
       } catch (e) { /* ignore */ }
@@ -10693,64 +10752,104 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       const S = pageLeaf;
       if (S.active && S.dir === direction && !forceRelayout) return true;
       layoutPageLeaf(direction);
+      // Pas encore de copie fiable de la page affichée : on ne montre rien
+      // (le changement de page est alors instantané, sans fausse page blanche).
+      if (!S.canCurl) { S.active = false; return false; }
       S.active = true;
       S.dir = direction;
       S.overlay.style.visibility = 'visible';
       return true;
     }
 
-    // Dessine la feuille pour une progression p (0 = à plat, 1 = tournée).
+    // Dégradé CSS dont les paliers sont exprimés en pixels à partir de la ligne de pli,
+    // le long de la direction v (unitaire), dans une boîte W×H.
+    function curlGradient(v, W, H, Mx, My, stops) {
+      const alpha = Math.atan2(v[0], -v[1]);
+      const deg = alpha * 180 / Math.PI;
+      const Lg = Math.abs(W * Math.sin(alpha)) + Math.abs(H * Math.cos(alpha));
+      const tM = Lg / 2 + v[0] * (Mx - W / 2) + v[1] * (My - H / 2);
+      return `linear-gradient(${deg.toFixed(2)}deg, ` + stops.map((s) => `${s[1]} ${(tM + s[0]).toFixed(1)}px`).join(', ') + ')';
+    }
+
+    function curlPolyCss(pts) {
+      if (!pts || pts.length < 3) return 'polygon(0 0, 0 0, 0 0)';
+      return 'polygon(' + pts.map((q) => q[0].toFixed(1) + 'px ' + q[1].toFixed(1) + 'px').join(', ') + ')';
+    }
+
+    // Géométrie pure du pli (voir aussi les tests : le coin se reflète exactement sur le doigt).
+    function curlClip(poly, nx, ny, mx, my, sign) {
+      const out = [];
+      const f = (pt) => sign * ((pt[0] - mx) * nx + (pt[1] - my) * ny);
+      for (let i = 0; i < poly.length; i++) {
+        const a = poly[i], b = poly[(i + 1) % poly.length];
+        const fa = f(a), fb = f(b);
+        if (fa >= 0) out.push(a);
+        if ((fa >= 0) !== (fb >= 0)) {
+          const t = fa / (fa - fb);
+          out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+        }
+      }
+      return out;
+    }
+
+    function curlGeometry(g, p) {
+      p = Math.max(0, Math.min(1, p));
+      const dirS = g.next ? 1 : -1;
+      const Cx = g.next ? g.pr : g.pl;
+      const Cy = g.cornerTop ? 0 : g.H;
+      const upS = g.cornerTop ? 1 : -1;
+      const phi = 0.72 * Math.pow(1 - p, 2.2);
+      const d = g.leafW * 2.06 * p;
+      const Px = Cx - dirS * d * Math.cos(phi);
+      const Py = Cy + upS * d * Math.sin(phi);
+      const Mx = (Cx + Px) / 2, My = (Cy + Py) / 2;
+      let nx = Cx - Px, ny = Cy - Py;
+      const len = Math.hypot(nx, ny) || 1;
+      nx /= len; ny /= len;
+      const rect = [[g.pl, 0], [g.pr, 0], [g.pr, g.H], [g.pl, g.H]];
+      const front = curlClip(rect, nx, ny, Mx, My, -1);
+      const flapOrig = curlClip(rect, nx, ny, Mx, My, 1);
+      const k = 2 * (nx * Mx + ny * My);
+      const matrix = [1 - 2 * nx * nx, -2 * nx * ny, -2 * nx * ny, 1 - 2 * ny * ny, k * nx, k * ny];
+      return { Cx, Cy, Px, Py, Mx, My, nx, ny, front, flapOrig, matrix };
+    }
+
+    // Dessine la page pour une progression p (0 = à plat, 1 = tournée) :
+    // la page se décolle depuis un coin, son verso apparaît (texte en miroir,
+    // en transparence), avec reflet sur le pli et ombres douces.
     function renderPageLeaf(direction, p) {
       const S = pageLeaf;
       const g = S.geom;
-      if (!g || !S.leaf) return;
+      if (!g || !S.front || !S.flap) return;
       p = Math.max(0, Math.min(1, p));
-      const a = p * g.maxAngle;
-      const rad = a * Math.PI / 180;
-      const sinA = Math.sin(rad), cosA = Math.cos(rad);
-      const sign = g.next ? -1 : 1;
-      S.leaf.style.transform = `rotateY(${(sign * a).toFixed(2)}deg)`;
+      const r = curlGeometry(g, p);
+      const ramp = Math.min(1, p * 10);            // les ombres apparaissent en douceur
+      const tail = p > 0.9 ? Math.max(0, (1 - p) / 0.1) : 1; // et s'éteignent à la fin
 
-      // --- Éclairage de la face visible : sombre côté reliure, reflet
-      //     brillant (effet de courbure), puis plus sombre vers le bord libre.
-      const toward = g.next ? 'right' : 'left';
-      const d = 0.42 * Math.pow(sinA, 0.9);
-      const hl = 0.28 * Math.pow(sinA, 1.1);
-      S.frontShade.style.background =
-        `linear-gradient(to ${toward}, rgba(0,0,0,${(d * 0.9).toFixed(3)}) 0%, rgba(255,255,255,${hl.toFixed(3)}) 24%, rgba(0,0,0,${(d * 0.12).toFixed(3)}) 52%, rgba(0,0,0,${d.toFixed(3)}) 100%)`;
-      // Verso : retourné horizontalement, donc la reliure est de l'autre côté.
-      const towardBack = g.next ? 'left' : 'right';
-      S.backShade.style.background =
-        `linear-gradient(to ${towardBack}, rgba(0,0,0,${(d * 0.9).toFixed(3)}) 0%, rgba(255,255,255,${hl.toFixed(3)}) 24%, rgba(0,0,0,${(d * 0.12).toFixed(3)}) 52%, rgba(0,0,0,${d.toFixed(3)}) 100%)`;
+      S.front.style.clipPath = curlPolyCss(r.front);
+      S.shadowB.style.clipPath = curlPolyCss(r.flapOrig);
+      S.flap.style.clipPath = curlPolyCss(r.flapOrig);
+      S.flap.style.transform = `matrix(${r.matrix.map((v) => v.toFixed(5)).join(',')})`;
+      S.flapWrap.style.filter = `drop-shadow(${(-3 * ramp).toFixed(1)}px ${(4 * ramp).toFixed(1)}px ${(9 * ramp).toFixed(1)}px rgba(0,0,0,${(0.34 * tail).toFixed(3)}))`;
 
-      // --- Ombre portée sur la page du dessous, juste au-delà du bord libre
-      //     (position projetée en tenant compte de la perspective).
-      const zEdge = g.leafW * sinA;
-      const persp = PAGE_LEAF_PERSPECTIVE;
-      const scale = persp / Math.max(200, persp - zEdge);
-      const dirSign = g.next ? 1 : -1;
-      const x3d = g.hingeX + dirSign * g.leafW * cosA;
-      const xp = g.W / 2 + (x3d - g.W / 2) * scale;
-      const side = dirSign * (cosA >= 0 ? 1 : -1);
-      const castW = Math.max(60, g.leafW * 0.34);
-      let castAlpha = 0.36 * Math.pow(sinA, 0.7) * Math.min(1, p * 14);
-      if (!g.spread && a > 90) castAlpha *= Math.max(0, 1 - (a - 90) / 8);
-      const cast = S.cast;
-      cast.style.left = (side > 0 ? xp : xp - castW) + 'px';
-      cast.style.width = castW + 'px';
-      cast.style.background = `linear-gradient(to ${side > 0 ? 'right' : 'left'}, rgba(0,0,0,${castAlpha.toFixed(3)}) 0%, rgba(0,0,0,${(castAlpha * 0.35).toFixed(3)}) 45%, rgba(0,0,0,0) 100%)`;
-      cast.style.opacity = castAlpha > 0.003 ? '1' : '0';
-
-      // --- Creux de la reliure (double page uniquement).
-      const spine = S.spine;
-      if (g.spread) {
-        spine.style.display = 'block';
-        spine.style.left = (g.hingeX - 18) + 'px';
-        spine.style.background = `linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,${(0.22 * sinA).toFixed(3)}) 50%, rgba(0,0,0,0) 100%)`;
-      } else {
-        spine.style.display = 'none';
-      }
+      const v = [r.nx, r.ny];
+      // Reflet cylindrique le long du pli (sur le verso, dans le repère d'origine de la page).
+      S.flapShade.style.background = curlGradient(v, g.W, g.H, r.Mx, r.My, [
+        [0, `rgba(0,0,0,${(0.30 * ramp).toFixed(3)})`],
+        [9, `rgba(255,255,255,${(0.50 * ramp).toFixed(3)})`],
+        [26, `rgba(0,0,0,${(0.10 * ramp).toFixed(3)})`],
+        [70, 'rgba(0,0,0,0)']
+      ]);
+      // Ombre portée du pli sur la page révélée en dessous.
+      S.shadowB.style.background = curlGradient(v, g.W, g.H, r.Mx, r.My, [
+        [0, `rgba(0,0,0,${(0.36 * ramp * tail).toFixed(3)})`],
+        [16, `rgba(0,0,0,${(0.17 * ramp * tail).toFixed(3)})`],
+        [56, 'rgba(0,0,0,0)']
+      ]);
     }
+
+
+    // Dessine la feuille pour une progression p (0 = à plat, 1 = tournée).
 
     // Compat : ancien nom, conservé au cas où un autre code l'appellerait.
     function drawPageCurl(direction, corner, p) { renderPageLeaf(direction, p); }
@@ -10767,12 +10866,8 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       const S = pageLeaf;
       const overlay = document.getElementById('pageFlipOverlay');
       if (overlay) overlay.style.visibility = 'hidden';
-      if (!S.leaf) { S.active = false; return; }
       S.active = false;
       S.dir = null;
-      S.leaf.style.transform = 'none';
-      S.cast.style.opacity = '0';
-      if (S.spine) S.spine.style.display = 'none';
       if (S.pendingFrame) {
         swapLeafFrame(S.pendingFrame, S.pendingSig, S.pendingKey);
         S.pendingFrame = null;
@@ -10787,7 +10882,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
     // géométrie depuis la page réellement affichée à cet instant.
     function animatePageCurl(direction, corner, durationMs, onDone) {
       if (pageLeaf.active) resetPageFlipVisual();
-      beginPageLeaf(direction, true);
+      if (!beginPageLeaf(direction, true)) { if (onDone) onDone(); return; }
       animatePageCurlBetween(direction, corner, 0, 1, durationMs || 620, onDone);
     }
 
@@ -10796,7 +10891,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
     // début du geste). Protégée par curlAnimToken : si un nouveau geste ou
     // une nouvelle animation démarre avant la fin, celle-ci s'arrête seule.
     function animatePageCurlBetween(direction, corner, fromP, toP, durationMs, onDone) {
-      beginPageLeaf(direction, false);
+      if (!beginPageLeaf(direction, false)) { if (onDone) onDone(); return; }
       const myToken = ++curlAnimToken;
       const start = performance.now();
       // Démarre doucement, accélère, puis se pose en douceur (comme un papier).
@@ -12077,8 +12172,10 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         setPageFadeVisual(pageDragState.direction, progress, true);
       } else if (dragAnimMode === 'slide') {
         setPageSlideVisual(pageDragState.direction, progress, true);
+      } else if (dragAnimMode === 'curl') {
+        setPageFlipVisual(pageDragState.direction, progress);
       } else {
-        // Effet livre retiré : pas de repli visuel pendant le tiré.
+        // Mode « Sans animation » : pas de repli visuel pendant le tiré.
       }
       return true;
     }
@@ -12139,6 +12236,21 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         } else {
           // Pas assez tiré : retour à la normale, pas de changement de page
           resetPageSlideVisual();
+        }
+        return;
+      }
+
+      if (dragAnimMode === 'curl') {
+        const cornerC = (pageDragState.cornerFrac != null) ? pageDragState.cornerFrac : 1;
+        if (progress >= PAGE_DRAG_TURN_THRESHOLD) {
+          // On termine le geste : la page réelle change sous la feuille qui finit de se tourner.
+          if (renditionInstance) {
+            if (direction === 'next') { renditionInstance.next(); } else { renditionInstance.prev(); }
+          }
+          animatePageCurlBetween(direction, cornerC, progress, 1, 300, resetPageFlipVisual);
+        } else {
+          // Pas assez tiré : la page se repose à plat.
+          animatePageCurlBetween(direction, cornerC, progress, 0, 240, resetPageFlipVisual);
         }
         return;
       }
@@ -14845,7 +14957,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         const viewerElement = document.getElementById('epub-viewer');
         viewerElement.innerHTML = '';
         let epubOptions = { width: "100%", height: "100%" };
-        if (spreadMode === 'paginated' || spreadMode === 'fade' || spreadMode === 'slide') {
+        if (spreadMode === 'paginated' || spreadMode === 'curl' || spreadMode === 'fade' || spreadMode === 'slide') {
           epubOptions.spread = (pageLayout === 'single') ? "none" : "auto";
         } else if (spreadMode === 'vertical') {
           epubOptions.flow = "scrolled";
@@ -14869,10 +14981,9 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
 
             currentOpenedBook.lastCfi = location.start.cfi;
 
-            let percent = currentBookInstance.locations.percentageFromCfi(location.start.cfi);
-            if (!isNaN(percent)) {
-              applyBookProgress(currentOpenedBook, Math.round(percent * 100));
-            }
+            // Voir getSafeReadingPercent : null tant que l'index des positions n'est pas prêt (≠ 0 %).
+            const pctSafe = getSafeReadingPercent(location.start.cfi);
+            if (pctSafe !== null) applyBookProgress(currentOpenedBook, pctSafe);
           }
           updatePageIndicator(location);
         });
