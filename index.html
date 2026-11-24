@@ -14,12 +14,7 @@
        "black-translucent", iOS force les icônes de la barre de statut en
        blanc — donc peu lisibles sur un thème de lecture clair. -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="SinaRead">
-  <meta name="theme-color" content="#4d4d4d">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" href="icon-180.png">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
   <!-- Bibliothèques et polices intégrées directement dans ce fichier
        (au lieu d'un CDN, et au lieu de fichiers externes voisins) pour que
@@ -1814,23 +1809,19 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       bottom: 0;
       width: 8%;
       min-width: 4px;
-      /* Ombrage en « multiplication » : il assombrit la couleur de la couverture
-         SANS la griser (une couverture rose reste rose, juste plus foncée au
-         creux de la charnière), tout en gardant l'effet de relief réaliste. */
       background: linear-gradient(
         to right,
-        rgb(224,224,224) 0%,
-        rgb(250,250,250) 6%,
-        rgb(214,214,214) 16%,
-        rgb(204,204,204) 55%,
-        rgb(186,186,186) 84%,
-        rgb(248,248,248) 90%,
-        rgb(226,226,226) 96%,
-        rgb(252,252,252) 100%
+        rgba(0,0,0,0.20) 0%,
+        rgba(255,255,255,0.16) 6%,
+        rgba(0,0,0,0.30) 16%,
+        rgba(0,0,0,0.38) 55%,
+        rgba(0,0,0,0.50) 84%,
+        rgba(255,255,255,0.22) 90%,
+        rgba(0,0,0,0.16) 96%,
+        rgba(0,0,0,0.04) 100%
       );
-      mix-blend-mode: multiply;
       /* ombre douce de la charnière qui retombe sur la couverture */
-      box-shadow: 3px 0 6px -1px rgba(0,0,0,0.18);
+      box-shadow: 3px 0 6px -1px rgba(0,0,0,0.28);
       pointer-events: none;
       z-index: 2;
     }
@@ -4345,11 +4336,6 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
     }
     @media (prefers-reduced-motion: reduce) { .ra-player { transition: none; } }
   </style>
-<script>
-  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.sinaDesktop) {
-    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
-  }
-</script>
 </head>
 <body>
 
@@ -4625,6 +4611,11 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
             <label style="font-size: 0.75rem; opacity: 0.7; display:block; margin-bottom:4px;">Clé d'application Dropbox (App key)</label>
             <input type="text" id="dropboxAppKeyInput" placeholder="Votre App key Dropbox" style="width:100%; padding:8px; border-radius:6px; border:1px solid rgba(0,0,0,0.2); background:var(--card-bg); color:var(--text-color); outline:none; margin-bottom:6px;">
             <p style="font-size: 0.7rem; opacity: 0.6;">Créez une App sur dropbox.com/developers/apps et collez ici sa clé (App key) pour activer la connexion réelle.</p>
+            <p style="font-size: 0.7rem; opacity: 0.8; margin-top:8px;">Dans l'App Dropbox : <b>Settings → OAuth 2 → Redirect URIs</b>, ajoute EXACTEMENT cette adresse puis « Add » :</p>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <code id="dropboxRedirectUri" style="flex:1; min-width:0; font-size:0.72rem; padding:6px 8px; background:rgba(0,0,0,0.06); border-radius:6px; word-break:break-all; user-select:all; -webkit-user-select:all;"></code>
+              <button type="button" onclick="dropboxCopyRedirectUri()" style="padding:6px 10px; border-radius:6px; border:1px solid rgba(0,0,0,0.2); background:transparent; color:inherit; cursor:pointer;">Copier</button>
+            </div>
           </div>
           <button onclick="loginDropbox()" style="width: 100%; padding: 10px; background: #0061fe; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
             <i class="fa-brands fa-dropbox"></i> Se connecter à Dropbox
@@ -4941,6 +4932,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
                style="flex:1; min-width:0; padding:9px 12px; border-radius:20px; border:1px solid rgba(0,0,0,0.2); font-size:0.95rem;"
                onkeydown="if(event.key==='Enter'){ webBrowserGo(this.value); }">
         <button class="custom-dialog-btn-confirm" onclick="webBrowserGo(document.getElementById('webBrowserUrl').value)">Ouvrir</button>
+        <button class="icon-btn" onclick="webBrowserOpenExternal()" title="Ouvrir cette page dans mon vrai navigateur (Chrome, Edge…) — les livres téléchargés seront ajoutés ici automatiquement"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
         <button class="icon-btn" onclick="mangaDownloadCurrentChapter()" title="Télécharger ce chapitre (manga / manhwa) dans la bibliothèque"><i class="fa-solid fa-file-arrow-down"></i></button>
         <button class="icon-btn" onclick="savedSitesSaveCurrent()" title="Enregistrer cette page"><i class="fa-regular fa-star"></i></button>
         <button class="icon-btn" onclick="savedSitesTogglePanel()" title="Mes sites et liens"><i class="fa-solid fa-bookmark"></i></button>
@@ -4971,10 +4963,8 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         <input type="url" id="linkImportInput" placeholder="https://…" autocomplete="off" autocapitalize="off" spellcheck="false"
                style="flex:1; min-width:0; padding:10px; border-radius:8px; border:1px solid rgba(0,0,0,0.2); font-size:1rem;"
                onkeydown="if(event.key==='Enter'){ linkImportGo(); }">
-        <button class="custom-dialog-btn-cancel" onclick="linkImportSaveFavorite()" title="Enregistrer ce lien en favori" aria-label="Enregistrer ce lien en favori"><i class="fa-regular fa-star"></i></button>
         <button class="custom-dialog-btn-confirm" id="linkImportGoBtn" onclick="linkImportGo()">Ouvrir</button>
       </div>
-      <div id="linkImportFavs" style="display:flex; flex-direction:column; gap:6px; margin-top:10px;"></div>
       <details style="margin-top:10px; font-size:0.8rem;">
         <summary style="cursor:pointer; opacity:0.8;">Relais personnel (si les liens ne s'ouvrent pas)</summary>
         <p style="opacity:0.7; margin:6px 0;">Adresse de ton relais, par ex. https://sinaread.moncompte.workers.dev</p>
@@ -5892,24 +5882,7 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
     let currentBookInstance = null;
     let renditionInstance = null;
     // État du geste de "tirer" (drag) pour tourner les pages, façon Apple Books
-    // Journal de diagnostic AFFICHÉ À L'ÉCRAN : actif seulement si l'adresse se termine par #debug
-    // (ou si localStorage.sinaDebug = '1'). Sert à voir quels touchers arrivent dans le lecteur.
-    const __DBG_ON = (location.hash || '').indexOf('debug') >= 0 || (function () { try { return localStorage.getItem('sinaDebug') === '1'; } catch (e) { return false; } })();
-    const __dbgLines = [];
-    let __dbgBox = null;
-    function __dbg(msg) {
-      if (!__DBG_ON) return;
-      try {
-        if (!__dbgBox) {
-          __dbgBox = document.createElement('div');
-          __dbgBox.style.cssText = 'position:fixed; left:4px; right:4px; bottom:60px; z-index:2147483000; pointer-events:none; background:rgba(0,0,0,0.78); color:#7CFC7C; font:10px/1.25 monospace; padding:5px 6px; border-radius:6px; max-height:34vh; overflow:hidden; white-space:pre-wrap; word-break:break-all;';
-          document.body.appendChild(__dbgBox);
-        }
-        __dbgLines.push(new Date().toTimeString().slice(3, 8) + ' ' + String(msg));
-        while (__dbgLines.length > 14) __dbgLines.shift();
-        __dbgBox.textContent = __dbgLines.join('\n');
-      } catch (e) { /* ignore */ }
-    }
+    function __dbg() {}
 
     let pageDragState = {
       active: false,
@@ -6602,7 +6575,17 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
     /* ---- Intégration Dropbox réelle (API officielle v2) ---- */
 
     function dropboxRedirectUri() {
+      // Appli Windows : la page est un fichier local (file://), que Dropbox refuse comme adresse de retour.
+      // Le programme ouvre alors une petite adresse locale temporaire (voir main.js).
+      if (window.sinaDesktop && window.sinaDesktop.dropboxLogin) return 'http://localhost:53682/';
       return window.location.origin + window.location.pathname;
+    }
+
+    function dropboxCopyRedirectUri() {
+      const uri = dropboxRedirectUri();
+      try { navigator.clipboard.writeText(uri); } catch (e) { /* ignore */ }
+      const el = document.getElementById('dropboxRedirectUri');
+      if (el) { const r = document.createRange(); r.selectNodeContents(el); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
     }
 
     // Les en-têtes HTTP Dropbox-API-Arg doivent rester en ASCII : on échappe les caractères non-ASCII.
@@ -6674,6 +6657,8 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         const keyInput = document.getElementById('dropboxAppKeyInput');
         if (keyInput && dropboxAppKey) keyInput.value = dropboxAppKey;
       }
+      const uriEl = document.getElementById('dropboxRedirectUri');
+      if (uriEl) uriEl.textContent = dropboxRedirectUri();
       openModal('dropboxSyncModal');
     }
 
@@ -6691,6 +6676,18 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         + '?client_id=' + encodeURIComponent(dropboxAppKey)
         + '&response_type=token'
         + '&redirect_uri=' + encodeURIComponent(dropboxRedirectUri());
+      if (window.sinaDesktop && window.sinaDesktop.dropboxLogin) {
+        const r = await window.sinaDesktop.dropboxLogin(authUrl);
+        if (r && r.ok && r.token) {
+          dropboxToken = r.token;
+          localStorage.setItem('sinaread_dropbox_token', dropboxToken);
+          await customAlert("Connexion Dropbox réussie !");
+          openDropboxSyncModal();
+        } else {
+          await customAlert("Connexion Dropbox impossible : " + ((r && r.error) || 'erreur inconnue'));
+        }
+        return;
+      }
       window.location.href = authUrl;
     }
 
@@ -8335,6 +8332,25 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       } catch (e) { /* page pas encore chargée */ }
     }
 
+    // Ouvre la page dans le vrai navigateur de l'ordinateur (utile quand un site
+    // bloque la vérification Cloudflare ici). L'appli surveille alors le dossier
+    // Téléchargements : tout .epub / .pdf téléchargé est ajouté à la bibliothèque.
+    function webBrowserOpenExternal() {
+      let url = '';
+      try { url = (webBrowserView && webBrowserView.getURL && webBrowserView.getURL()) || ''; } catch (e) { /* ignore */ }
+      if (!/^https?:\/\//i.test(url)) {
+        const v = (document.getElementById('webBrowserUrl') || {}).value || '';
+        url = /^https?:\/\//i.test(v.trim()) ? v.trim() : '';
+      }
+      if (!url) { webBrowserToast('Ouvre d\'abord un site, puis clique sur ce bouton.'); return; }
+      if (window.sinaDesktop && window.sinaDesktop.openExternal) {
+        window.sinaDesktop.openExternal(url);
+        webBrowserToast('Ouvert dans ton navigateur. Télécharge le livre (.epub / .pdf) : il sera ajouté ici tout seul (surveillance du dossier Téléchargements pendant 15 min).');
+      } else {
+        window.open(url, '_blank');
+      }
+    }
+
     function webBrowserGo(text) {
       text = (text || '').trim();
       if (!text || !webBrowserView) return;
@@ -8496,7 +8512,6 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       document.getElementById('linkImportResults').innerHTML = '';
       document.getElementById('linkImportStatus').textContent = '';
       openModal('linkImportModal');
-      try { linkImportRenderFavorites(); } catch (e) { /* ignore */ }
       const rl = document.getElementById('linkImportRelay'); if (rl) rl.value = linkImportGetRelay();
       const inp = document.getElementById('linkImportInput');
       setTimeout(() => inp && inp.focus(), 50);
@@ -8676,66 +8691,6 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       }
     }
 
-    // ----- Liens favoris (fenêtre « Ouvrir un lien ») : même liste que « Mes sites et liens » -----
-    async function linkImportSaveFavorite() {
-      let url = (document.getElementById('linkImportInput').value || '').trim();
-      if (!url) { linkImportSetStatus('Colle d’abord un lien à enregistrer.', true); return; }
-      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-      let host = '';
-      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { linkImportSetStatus('Ce lien n’est pas valide.', true); return; }
-      const name = await customPrompt('Nom de ce lien :', host, 'Enregistrer', 'Annuler');
-      if (typeof name !== 'string' || !name.trim()) return;
-      const list = savedSitesLoad();
-      const existing = list.find((x) => x.url === url);
-      if (existing) existing.name = name.trim();
-      else list.unshift({ id: 'ss_' + Date.now().toString(36), name: name.trim(), url: url, added: Date.now() });
-      savedSitesStore(list);
-      linkImportSetStatus('Lien enregistré en favori : ' + name.trim());
-      linkImportRenderFavorites();
-    }
-
-    function linkImportRenderFavorites() {
-      const box = document.getElementById('linkImportFavs');
-      if (!box) return;
-      const list = savedSitesLoad();
-      box.innerHTML = '';
-      if (!list.length) return;
-      const title = document.createElement('div');
-      title.style.cssText = 'font-size:0.8rem; opacity:0.7; margin-top:4px;';
-      title.textContent = 'Mes liens favoris';
-      box.appendChild(title);
-      list.forEach((it) => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(0,0,0,0.05); border-radius:10px;';
-        row.innerHTML = '<div style="flex:1; min-width:0; cursor:pointer;" data-act="open"><div style="font-weight:600; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + linkImportEsc(it.name) + '</div>'
-          + '<div style="font-size:0.72rem; opacity:0.6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + linkImportEsc(it.url) + '</div></div>'
-          + '<button class="icon-btn" data-act="del" title="Supprimer"><i class="fa-solid fa-trash"></i></button>';
-        row.querySelector('[data-act="open"]').onclick = () => { document.getElementById('linkImportInput').value = it.url; linkImportGo(); };
-        row.querySelector('[data-act="del"]').onclick = async () => {
-          if (!(await customConfirm('Supprimer « ' + it.name + ' » ?', 'Supprimer', 'Annuler'))) return;
-          savedSitesStore(savedSitesLoad().filter((x) => x.id !== it.id));
-          linkImportRenderFavorites();
-        };
-        box.appendChild(row);
-      });
-    }
-
-    let linkImportTryHere = false;
-    function linkImportShowReturnHelp(url) {
-      linkImportSetStatus('Page ouverte dans ton navigateur. Télécharge le livre (.epub / .pdf), puis reviens ici.');
-      const results = document.getElementById('linkImportResults');
-      results.innerHTML = '<div style="display:flex; flex-direction:column; gap:8px;">'
-        + '<button class="custom-dialog-btn-confirm" id="linkImportPickBtn">J’ai téléchargé : choisir le livre</button>'
-        + '<div style="font-size:0.8rem; opacity:0.7;">Sur iPhone, l’appli ne peut pas voir tes téléchargements toute seule : choisis le fichier dans Fichiers → Téléchargements, il sera ajouté à ta bibliothèque.</div>'
-        + '<button class="custom-dialog-btn-cancel" id="linkImportTryBtn">Essayer de lire le lien ici (peut échouer)</button>'
-        + '</div>';
-      document.getElementById('linkImportPickBtn').onclick = () => {
-        closeModal('linkImportModal');
-        document.getElementById('libraryFileUploader').click();
-      };
-      document.getElementById('linkImportTryBtn').onclick = () => { linkImportTryHere = true; linkImportGo(); };
-    }
-
     async function linkImportGo() {
       if (linkImportBusy) return;
       const inp = document.getElementById('linkImportInput');
@@ -8745,14 +8700,6 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       if (!url) { linkImportSetStatus('Colle d’abord un lien.', true); return; }
       if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
       try { new URL(url); } catch (e) { linkImportSetStatus('Ce lien n’est pas valide.', true); return; }
-      // Version web / iPhone : on ouvre le lien dans le vrai navigateur (Cloudflare, etc.),
-      // puis on propose d'ajouter le livre téléchargé à la bibliothèque.
-      if (!window.sinaDesktop && !linkImportTryHere) {
-        window.open(url, '_blank', 'noopener');
-        linkImportShowReturnHelp(url);
-        return;
-      }
-      linkImportTryHere = false;
       linkImportBusy = true;
       const goBtn = document.getElementById('linkImportGoBtn');
       goBtn.disabled = true;
@@ -10114,25 +10061,6 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
       }
       updateHud();
     }
-
-    const IS_IOS_TOUCH = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-    // iPhone : petites zones tactiles invisibles, au centre du haut et du bas de l'écran
-    // (dans les marges, hors du texte), qui affichent/masquent le menu du lecteur même si
-    // Safari ne transmet pas les taps du milieu de la page. N'existent que sur iPhone/iPad.
-    (function setupIosTapStrips() {
-      if (!IS_IOS_TOUCH) return;
-      const rv = document.getElementById('reader-view');
-      if (!rv) return;
-      ['top', 'bottom'].forEach((pos) => {
-        const d = document.createElement('div');
-        d.className = 'ios-tap-strip';
-        d.style.cssText = 'position:absolute; left:30%; right:30%; height:48px; z-index:61; background:transparent; -webkit-tap-highlight-color:transparent;'
-          + (pos === 'top' ? 'top:0;' : 'bottom:0;');
-        d.addEventListener('click', (e) => { e.stopPropagation(); toggleReaderFullscreenHUD(); });
-        rv.appendChild(d);
-      });
-    })();
 
     // Masque le bandeau du haut/bas du lecteur (titre, pagination, croix de
     // sortie du lecteur) : appelée à chaque ouverture/fermeture des
@@ -11792,18 +11720,6 @@ c=a.heap_max+1;c<V;c++)d=a.heap[c],f=i[2*i[2*d+1]+1]+1,f>o&&(f=o,p++),i[2*d+1]=f
         if (!doc.__hudTapBound) {
           doc.__hudTapBound = true;
 
-          // iPhone/iPad : Safari ne transmet pas toujours les taps sur du texte « non cliquable »
-          // d'une iframe. On marque le document comme cliquable (curseur « main » + gestionnaire
-          // vide posé par la page), ce qui force Safari à envoyer les événements tactiles/clic.
-          if (IS_IOS_TOUCH) {
-            try {
-              const st = doc.createElement('style');
-              st.textContent = 'html, body, body * { cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,0); }';
-              (doc.head || doc.documentElement).appendChild(st);
-              doc.documentElement.onclick = function () {};
-              if (doc.body) doc.body.onclick = function () {};
-            } catch (err) { /* ignore */ }
-          }
           // Voir createTapTracker() : on écoute pointer ET touch en
           // parallèle (dédupliqué) car les Pointer Events seuls ne se
           // déclenchent pas de façon fiable dans cette iframe sur iOS.
